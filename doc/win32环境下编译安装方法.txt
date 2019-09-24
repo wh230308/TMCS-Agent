@@ -1,0 +1,185 @@
+# Configure/nmake命令行方式编译
+
+一、准备
+
+1）安装perl
+打开http://www.perl.org/get.html，下载32位Strawberry Perl
+a.安装perl
+b.安装win32::Registry，执行cpanm Win32::Registry（详情见https://metacpan.org/pod/Win32::Registry）
+
+2）安装openssl
+打开http://slproweb.com/products/Win32OpenSSL.html，下载、安装Win32OpenSSL-1_0_2t
+
+3）安装Windows SNMP Service
+以win7系统为例，打开控制面板，进入程序》程序和功能》打开和关闭Windows功能，勾选简单网络管理协议（SNMP）即可
+注：如果不使用Net-SNMP的winExtDLL功能可以选择不安装
+
+
+二、编译、安装
+
+1）设置OpenSSL环境变量
+如，OpenSSL安装在C盘时：
+    set INCLUDE=C:\OpenSSL-Win32\include
+    set LIB=C:\OpenSSL-Win32\lib\VC\static
+
+2）初始化Visual Studio编译环境
+进入到VC安装目录，如：C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC，然后执行vcvarsall.bat
+注：上述初始化的时32位编译环境，关于64位编译环境如何初始化，请自行上网查询。
+
+3）编译
+假设Net-SNMP代码位于d:\net-snmp-5.7.2.1目录。
+
+a.使用build.bat脚本编译安装
+进入d:\net-snmp-5.7.2.1目录，执行win32\build.bat，屏幕显示如下选项：
+    Net-SNMP build and install options
+    ==================================
+
+    1.  OpenSSL support:                disabled
+    2.  Platform SDK support:           disabled
+
+    3.  Install path:                   c:/usr
+    4.  Install after build:            enabled
+
+    5.  Perl modules:                   disabled
+    6.  Install perl modules:           disabled
+
+    7.  Quiet build (logged):           enabled
+    8.  Debug mode:                     disabled
+
+    9.  IPv6 transports (requires SDK): disabled
+    10. winExtDLL agent (requires SDK): disabled
+
+    11. Link type:                      static
+
+    12. Install development files       disabled
+
+    F.  Finished - start build
+    Q.  Quit - abort build
+
+    Select option to set / toggle:  
+	
+通过输入选项的序号来切换选项是否选中，输入f开始编译。
+如：
+	输入1，启用OpenSSL（snmpv3必需）
+	输入2，提供Platform SDK支持（vc6之后版本无需另外单独安装Platform SDK）		
+	输入3，设置自定义目录，如d:/net-snmp（注：路径中的分隔符必须使用Unix风格分隔符'/'）
+	输入10，启用winExtDLL代理扩展（注：若系统中未安装Windows SNMP服务，则可以不启用winExtDLL代理扩展）
+	
+b.使用Configure/nmake编译安装
+进入Net-SNMP代码root目录下的win32目录，通过Configure来生成Makefile，Configure的选项列表可以通过
+perl Configure --help命令获得。
+如，通过如下命令生成Makefile:
+perl Configure --with-sdk --with-ssl --config=release --with-winextdll --prefix="d:/net-snmp"
+
+屏幕输出如下：
+---------------------------------------------------------
+            Net-SNMP configuration summary:
+---------------------------------------------------------
+
+  Version:                    5.7.2.1
+  Config type:                release
+  SDK:                        enabled
+  Link type:                  static
+  Prefix / Destdir:           d:/net-snmp
+  OpenSSL:                    enabled
+  IPv6 transport:             disabled
+  winExtDLL agent:            enabled
+  
+Makefile生成之后，执行编译安装：
+nmake clean
+nmake
+nmake install
+  
+4）扩展代理
+假设MIB模块"my"对应的代码文件为my.c和my.h，
+
+a.添加扩展代码
+将扩展代码复制到d:\net-snmp-5.7.2.1\agent\mibgroup，
+
+b.添加代码引用
+b1.添加my.c到netsnmpmibs的工程中
+进入d:\net-snmp-5.7.2.1\win32\netsnmpmibs目录，编辑Makefile.in，为my.c添加编译选项，如：
+在LIB32_OBJS1或LIB32_OBJS2中添加"$(INTDIR)\my.obj"
+在合适的地方添加
+SOURCE=..\..\agent\mibgroup\my.c
+"$(INTDIR)\my.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+	
+b2.在<sourcedir>\win32\mib_module_includes.h添加头文件
+#include "mibgroup/my.h"
+
+b3.在<sourcedir>\win32\mib_module_inits.h添加如下代码
+if (should_init("my")) init_my();
+
+注：如果某个扩展代码源文件不包含init_xxx函数，则不需要添加到b2和b3中
+
+
+三、运行
+假设Net-SNMP的安装目录位于d:\net-snmp目录。
+
+1）配置snmpd.conf
+a.将net-snmp安装目录添加到系统环境变量。
+
+b.执行snmpconf -g basic_setup，将打开对话，按照提示输入合适的值，最后生成snmpd.conf，
+  将snmpd.conf放到d:\net-snmp\share\snmp目录下
+  
+2）配置snmptrapd.conf
+创建名为snmptrapd.conf的配置文件，添加如下配置：
+authCommunity log,execute,net public  
+将snmptrapd.conf配置文件同样拷贝到d:\net-snmp\share\snmp目录下
+注：snmptrapd.conf更多配置见http://www.net-snmp.org/wiki/index.php/TUT:Configuring_snmptrapd
+
+
+3）配置MIB
+假设有MY-MIB.txt的MIB文件，且模块名为MY-MIB
+
+a.拷贝MY-MIB.tx文件到d:\net-snmp\share\snmp\mibs目录下
+b.将MY-MIB添加到缓存
+打开d:\net-snmp\snmp\persist\mib_indexes\0，添加如下行：
+MY-MIB MY-MIB.txt
+
+4）运行snmpd、snmptrapd
+a.运行net-snmp代替Windows SNMP service
+从net-snmp5.4开始，net-snmp代理可以通过Net-SNMP winExtDLL来加载Windows SNMP service的扩展。
+因此，如果使用Net-SNMP winExtDLL功能，Windows SNMP service必须安装，且必须禁用。
+
+命令行方式启动snmpd:
+snmpd.exe -I-udp,udpTable,tcp,tcpTable,icmp,ip,interfaces,system_mib,sysORTable
+-I选项排除net-snmp与winExtDLL重叠的扩展。也就是说，-I选项中列出的扩展从winExtDLL获取，
+而其他未列出的从net-snmp中获取。
+
+可以通过获取sysDescr来测试winExtDLL是否可用，如：
+snmpget -v 1 -c public localhost sysDescr.0
+如果输出的是类似“Windows DESKTOP-HP129KC 6.2.9200   Professional”，则表明是从winExtDLL获取的。
+可以通过-DwinExtDLL选项来查看加载的Windows模块。如：
+snmpd.exe -Lo -I-udp,udpTable,tcp,tcpTable,icmp,ip,interfaces,system_mib,sysORTable -DwinExtDLL
+注：-I后的选项之间不要加空格
+
+b.net-snmp与Windows SNMP service共存
+具体见Net-SNMP源码目录里的README.win32
+
+c.以Windows Service的方式运行snmpd和snmptrapd
+注册snmpd为Windows Service的命令格式为：
+snmpd -register [OPTIONS] [LISTENING ADDRESSES]
+
+注册snmptrapd为Windows Service的命令格式为：
+snmptrapd -register [OPTIONS] [LISTENING ADDRESSES]
+
+如snmptrapd -register -Lf d:/net-snmp/temp/snmptrapd.log
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

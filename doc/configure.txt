@@ -1,0 +1,30 @@
+./configure \
+--prefix=/usr/local/net-snmp \
+--with-default-snmp-version="3" \
+--with-sys-contact="wh08420@outlook.com" \
+--with-sys-location="hangzhou" \
+--with-persistent-directory="/var/net-snmp" \
+--with-logfile="/var/log/snmpd.log" \
+--with-libs="-lpthread" \
+--with-mib-modules=" \
+hzchangrong-tmcs-mib/management/devInfoTable,\
+hzchangrong-tmcs-mib/management/mpuInfoTable,\
+hzchangrong-tmcs-mib/management/riuInfoTable,\
+hzchangrong-tmcs-mib/management/cwpInfoTable,\
+hzchangrong-tmcs-mib/management/devInfoChange,\
+hzchangrong-tmcs-mib/management/mpuInfoChange,\
+hzchangrong-tmcs-mib/management/riuInfoChange,\
+hzchangrong-tmcs-mib/management/cwpInfoChange,\
+hzchangrong-tmcs-mib/management/riuPortsStatus,\
+hzchangrong-tmcs-mib/management/callRecords,\
+hzchangrong-tmcs-mib/management/liuEthStatus,\
+hzchangrong-tmcs-mib/management/phoneBtnInfos,\
+hzchangrong-tmcs-mib/management/radioBtnInfos,\
+hzchangrong-tmcs-mib/management/funcBtnInfos,\
+hzchangrong-tmcs-mib/management/cwpEthStatus,\
+hzchangrong-tmcs-mib/management/cwpPowerStatus,\
+hzchangrong-tmcs-mib/management/servEthStatus,\
+hzchangrong-tmcs-mib/net/server_api, \
+hzchangrong-tmcs-mib/net/io_handler, \
+hzchangrong-tmcs-mib/net/packet_handler"
+
